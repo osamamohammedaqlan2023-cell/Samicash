@@ -1,0 +1,1474 @@
+```html
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>سامي كاش | إدارة العمال والحسابات</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+  <!-- Supabase JS v2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Cairo Arabic Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    /* Base accessible styling for low-technical-literacy users */
+    body {
+      font-family: 'Cairo', sans-serif;
+      background-color: #0b1120;
+      color: #f8fafc;
+      font-size: 18px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .gold-gradient {
+      background: linear-gradient(135deg, #d4af37 0%, #b48a28 100%);
+    }
+    .card-dark {
+      background-color: #111827;
+      border: 2px solid #1f2937;
+    }
+    .input-dark {
+      background-color: #0f172a;
+      border: 2px solid #334155;
+      color: #f8fafc;
+      font-size: 18px;
+      min-height: 52px;
+    }
+    .input-dark:focus {
+      outline: none;
+      border-color: #d4af37;
+    }
+    button {
+      touch-action: manipulation;
+    }
+    button:active {
+      transform: scale(0.97);
+    }
+  </style>
+</head>
+<body class="min-h-screen pb-28">
+
+  <!-- Sticky Top Header with Prominent Weekly Settlement Button -->
+  <header class="sticky top-0 z-40 bg-slate-950/95 backdrop-blur border-b-2 border-slate-800 px-3 py-3">
+    <div class="max-w-3xl mx-auto flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2.5">
+        <div class="w-12 h-12 rounded-2xl gold-gradient flex items-center justify-center text-slate-950 text-2xl shadow">
+          <i class="fa-solid fa-helmet-safety"></i>
+        </div>
+        <div>
+          <h1 class="text-xl font-black text-amber-400 leading-tight">SamiCash</h1>
+          <span id="connectionBadge" class="inline-block text-xs px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold">
+            حفظ في الهاتف
+          </span>
+        </div>
+      </div>
+
+      <button onclick="openSettlementModal('all')" class="gold-gradient text-slate-950 font-black text-base px-4 py-3.5 rounded-2xl shadow-lg flex items-center gap-2 min-h-[52px]">
+        <i class="fa-solid fa-hand-holding-dollar text-xl"></i>
+        <span>تصفية الحسابات</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- 3-Card Quick Financial Summary -->
+  <section class="max-w-3xl mx-auto px-3 pt-3">
+    <div class="grid grid-cols-3 gap-2 text-center">
+      <div class="card-dark rounded-2xl p-3">
+        <div class="text-xs sm:text-sm text-emerald-300 font-bold">المستحق</div>
+        <div id="topTotalEarned" class="text-lg sm:text-xl font-black text-emerald-400 mt-1">0</div>
+      </div>
+      <div class="card-dark rounded-2xl p-3">
+        <div class="text-xs sm:text-sm text-rose-300 font-bold">المصروف</div>
+        <div id="topTotalDeducted" class="text-lg sm:text-xl font-black text-rose-400 mt-1">0</div>
+      </div>
+      <div class="card-dark rounded-2xl p-3 border-amber-500/60">
+        <div class="text-xs sm:text-sm text-amber-300 font-bold">الباقي للعمال</div>
+        <div id="topTotalNet" class="text-lg sm:text-xl font-black text-amber-400 mt-1">0</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Content Sections -->
+  <main class="max-w-3xl mx-auto px-3 pt-4 space-y-4">
+
+    <!-- Tab 1: التحضير والمصروف اليومي (Daily Attendance & Daily Expense) -->
+    <section id="tab-attendance" class="tab-section space-y-4">
+      <div class="card-dark rounded-2xl p-4 space-y-3">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <h2 class="text-xl font-black text-amber-400 flex items-center gap-2">
+            <i class="fa-solid fa-clipboard-check text-2xl"></i>
+            <span>تحضير ومصروف اليوم</span>
+          </h2>
+          <input type="date" id="attendanceDate" class="input-dark rounded-2xl px-3 py-2 font-bold" onchange="renderAttendanceList()" />
+        </div>
+
+        <div class="space-y-2">
+          <label class="text-sm text-slate-300 font-bold block">مكان العمل (الموقع):</label>
+          <div class="flex gap-2">
+            <select id="defaultSiteSelect" class="input-dark flex-1 rounded-2xl px-3 py-2 font-bold"></select>
+            <button onclick="openSiteModal()" class="bg-slate-800 text-amber-300 border-2 border-amber-500/40 rounded-2xl px-4 font-black text-base flex items-center gap-1.5 min-h-[52px]">
+              <i class="fa-solid fa-plus"></i>
+              <span>موقع</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="attendanceList" class="space-y-3"></div>
+    </section>
+
+    <!-- Tab 2: العمال والمصروف (Workers & Expenses) -->
+    <section id="tab-workers" class="tab-section hidden space-y-4">
+      <!-- Give Expense Card -->
+      <div class="card-dark rounded-2xl p-4 space-y-3 border-rose-500/40">
+        <h3 class="text-xl font-black text-rose-400 flex items-center gap-2">
+          <i class="fa-solid fa-money-bill-wave text-2xl"></i>
+          <span>إعطاء مصروف لعامل</span>
+        </h3>
+        <div class="space-y-2.5">
+          <div>
+            <label class="text-sm text-slate-300 font-bold block mb-1">اختر العامل:</label>
+            <select id="advanceWorkerSelect" class="input-dark w-full rounded-2xl px-3 py-2 font-bold"></select>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="text-sm text-slate-300 font-bold block mb-1">المبلغ:</label>
+              <input type="number" id="advanceAmount" placeholder="0" class="input-dark w-full rounded-2xl px-3 py-2 font-black text-center text-rose-300" />
+            </div>
+            <div>
+              <label class="text-sm text-slate-300 font-bold block mb-1">التاريخ:</label>
+              <input type="date" id="advanceDate" class="input-dark w-full rounded-2xl px-2 py-2 font-bold text-sm" />
+            </div>
+          </div>
+          <div>
+            <label class="text-sm text-slate-300 font-bold block mb-1">ملاحظة (اختياري):</label>
+            <input type="text" id="advanceNote" placeholder="مثال: مصروف" class="input-dark w-full rounded-2xl px-3 py-2" />
+          </div>
+        </div>
+        <button onclick="addAdvance()" class="w-full bg-rose-600 text-white font-black py-3.5 rounded-2xl text-lg flex items-center justify-center gap-2 shadow min-h-[54px]">
+          <i class="fa-solid fa-check-circle text-xl"></i>
+          <span>حفظ المصروف</span>
+        </button>
+      </div>
+
+      <!-- Workers Directory -->
+      <div class="card-dark rounded-2xl p-4 space-y-3">
+        <div class="flex items-center justify-between gap-2">
+          <h2 class="text-xl font-black text-amber-400 flex items-center gap-2">
+            <i class="fa-solid fa-users text-2xl"></i>
+            <span>العمال</span>
+          </h2>
+          <button onclick="openWorkerModal()" class="gold-gradient text-slate-950 font-black text-base px-4 py-3 rounded-2xl flex items-center gap-2 shadow min-h-[52px]">
+            <i class="fa-solid fa-user-plus text-lg"></i>
+            <span>عامل جديد</span>
+          </button>
+        </div>
+        <input type="text" id="workerSearch" oninput="renderWorkersList()" placeholder="اكتب اسم العامل للبحث..." class="input-dark w-full rounded-2xl px-3 py-2" />
+      </div>
+
+      <div id="workersList" class="space-y-3"></div>
+    </section>
+
+    <!-- Tab 3: الحسابات (Accounts, Weekly Settlement & Reports) -->
+    <section id="tab-reports" class="tab-section hidden space-y-4">
+      <div class="card-dark rounded-2xl p-4 space-y-3">
+        <h2 class="text-xl font-black text-amber-400 flex items-center gap-2">
+          <i class="fa-solid fa-calculator text-2xl"></i>
+          <span>حسابات العمال والتصفية</span>
+        </h2>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <button onclick="openSettlementModal('all')" class="gold-gradient text-slate-950 font-black text-base py-3.5 px-3 rounded-2xl flex items-center justify-center gap-2 shadow min-h-[54px]">
+            <i class="fa-solid fa-hand-holding-dollar text-xl"></i>
+            <span>تصفية للكل</span>
+          </button>
+          <button onclick="exportToExcelCSV()" class="bg-emerald-600 text-white font-black text-base py-3.5 px-3 rounded-2xl flex items-center justify-center gap-2 shadow min-h-[54px]">
+            <i class="fa-solid fa-file-excel text-xl"></i>
+            <span>ملف Excel</span>
+          </button>
+          <button onclick="shareWhatsAppReport()" class="bg-green-600 text-white font-black text-base py-3.5 px-3 rounded-2xl flex items-center justify-center gap-2 shadow min-h-[54px]">
+            <i class="fa-brands fa-whatsapp text-xl"></i>
+            <span>إرسال واتساب</span>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 pt-1">
+          <div>
+            <label class="text-xs text-slate-300 font-bold block mb-1">من تاريخ:</label>
+            <input type="date" id="reportFromDate" onchange="renderReport()" class="input-dark w-full rounded-2xl px-2 py-2 text-sm font-bold" />
+          </div>
+          <div>
+            <label class="text-xs text-slate-300 font-bold block mb-1">إلى تاريخ:</label>
+            <input type="date" id="reportToDate" onchange="renderReport()" class="input-dark w-full rounded-2xl px-2 py-2 text-sm font-bold" />
+          </div>
+        </div>
+      </div>
+
+      <div id="reportWorkersList" class="space-y-3"></div>
+
+      <!-- Undoable Weekly Settlement History Log -->
+      <div class="card-dark rounded-2xl p-4 space-y-3">
+        <h3 class="text-lg font-black text-amber-400 flex items-center gap-2">
+          <i class="fa-solid fa-clock-rotate-left"></i>
+          <span>آخر التصفيات المدفوعة</span>
+        </h3>
+        <div id="settlementHistoryList" class="space-y-2.5 text-sm"></div>
+      </div>
+    </section>
+
+    <!-- Tab 4: الإعدادات (Sites & Supabase Cloud Sync) -->
+    <section id="tab-settings" class="tab-section hidden space-y-4">
+      <div class="card-dark rounded-2xl p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <h3 class="text-xl font-black text-amber-400">أماكن العمل (المواقع)</h3>
+          <button onclick="openSiteModal()" class="gold-gradient text-slate-950 text-sm font-black px-3.5 py-2.5 rounded-2xl min-h-[48px]">
+            + موقع جديد
+          </button>
+        </div>
+        <div id="settingsSitesList" class="space-y-2"></div>
+      </div>
+
+      <div class="card-dark rounded-2xl p-4 space-y-3">
+        <h2 class="text-lg font-black text-slate-300 flex items-center gap-2">
+          <i class="fa-solid fa-cloud"></i>
+          <span>الإعدادات والربط السحابي</span>
+        </h2>
+
+        <div class="space-y-2.5">
+          <div>
+            <label class="text-xs text-slate-400 block mb-1">رابط السحابة (Supabase URL)</label>
+            <input type="text" id="supabaseUrlInput" placeholder="https://xxxx.supabase.co" class="input-dark w-full rounded-2xl px-3 py-2 text-sm text-left" dir="ltr" />
+          </div>
+          <div>
+            <label class="text-xs text-slate-400 block mb-1">مفتاح الربط (Anon Key)</label>
+            <input type="password" id="supabaseKeyInput" placeholder="eyJhbGciOi..." class="input-dark w-full rounded-2xl px-3 py-2 text-sm text-left" dir="ltr" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 pt-1">
+          <button onclick="saveSupabaseSettings()" class="gold-gradient text-slate-950 font-black py-3 rounded-2xl text-base min-h-[52px]">
+            حفظ واتصال
+          </button>
+          <button onclick="syncFromCloud()" class="bg-slate-800 text-amber-300 border-2 border-amber-500/30 font-black py-3 rounded-2xl text-base min-h-[52px]">
+            تحديث البيانات
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Large 4-Tab Bottom Navigation Bar -->
+  <nav class="fixed bottom-0 inset-x-0 z-40 bg-slate-950 border-t-2 border-slate-800">
+    <div class="max-w-3xl mx-auto grid grid-cols-4 text-center py-2">
+      <button onclick="switchTab('attendance')" id="nav-attendance" class="nav-btn text-amber-400 flex flex-col items-center gap-1 py-1 font-black">
+        <i class="fa-solid fa-clipboard-check text-2xl"></i>
+        <span class="text-sm">التحضير</span>
+      </button>
+      <button onclick="switchTab('workers')" id="nav-workers" class="nav-btn text-slate-400 flex flex-col items-center gap-1 py-1 font-black">
+        <i class="fa-solid fa-users text-2xl"></i>
+        <span class="text-sm">العمال والمصروف</span>
+      </button>
+      <button onclick="switchTab('reports')" id="nav-reports" class="nav-btn text-slate-400 flex flex-col items-center gap-1 py-1 font-black">
+        <i class="fa-solid fa-calculator text-2xl"></i>
+        <span class="text-sm">الحسابات</span>
+      </button>
+      <button onclick="switchTab('settings')" id="nav-settings" class="nav-btn text-slate-400 flex flex-col items-center gap-1 py-1 font-black">
+        <i class="fa-solid fa-gear text-2xl"></i>
+        <span class="text-sm">الإعدادات</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Modal: Add / Edit Worker -->
+  <div id="workerModal" class="fixed inset-0 z-50 hidden bg-black/80 flex items-center justify-center p-3">
+    <div class="card-dark w-full max-w-md rounded-3xl p-5 space-y-3">
+      <div class="flex items-center justify-between">
+        <h3 id="workerModalTitle" class="text-xl font-black text-amber-400">إضافة عامل جديد</h3>
+        <button onclick="closeModal('workerModal')" class="text-slate-300 text-2xl px-2"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <input type="hidden" id="editWorkerId" />
+      <div>
+        <label class="text-sm text-slate-300 font-bold block mb-1">اسم العامل:</label>
+        <input type="text" id="workerNameInput" placeholder="اكتب الاسم هنا" class="input-dark w-full rounded-2xl px-3 py-2 font-bold" />
+      </div>
+      <div>
+        <label class="text-sm text-slate-300 font-bold block mb-1">الشغلة (معلم / عامل):</label>
+        <input type="text" id="workerRoleInput" placeholder="مثال: معلم / عامل" class="input-dark w-full rounded-2xl px-3 py-2" />
+      </div>
+      <div>
+        <label class="text-sm text-slate-300 font-bold block mb-1">حساب اليوم الواحد (اليومية):</label>
+        <input type="number" id="workerRateInput" placeholder="0" class="input-dark w-full rounded-2xl px-3 py-2 font-black text-amber-300" />
+      </div>
+      <div>
+        <label class="text-sm text-slate-300 font-bold block mb-1">رقم الجوال (اختياري):</label>
+        <input type="text" id="workerPhoneInput" placeholder="77xxxxxxx" class="input-dark w-full rounded-2xl px-3 py-2" />
+      </div>
+      <div class="grid grid-cols-2 gap-2 pt-2">
+        <button onclick="saveWorker()" class="gold-gradient text-slate-950 font-black py-3.5 rounded-2xl text-lg">حفظ</button>
+        <button onclick="closeModal('workerModal')" class="bg-slate-800 text-slate-200 font-black py-3.5 rounded-2xl text-lg">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Add Site -->
+  <div id="siteModal" class="fixed inset-0 z-50 hidden bg-black/80 flex items-center justify-center p-3">
+    <div class="card-dark w-full max-w-md rounded-3xl p-5 space-y-3">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xl font-black text-amber-400">إضافة موقع جديد</h3>
+        <button onclick="closeModal('siteModal')" class="text-slate-300 text-2xl px-2"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div>
+        <label class="text-sm text-slate-300 font-bold block mb-1">اسم الموقع:</label>
+        <input type="text" id="siteNameInput" placeholder="مثال: عمارة بسام" class="input-dark w-full rounded-2xl px-3 py-2 font-bold" />
+      </div>
+      <div>
+        <label class="text-sm text-slate-300 font-bold block mb-1">ملاحظة (اختياري):</label>
+        <input type="text" id="siteNotesInput" placeholder="مكان العمارة" class="input-dark w-full rounded-2xl px-3 py-2" />
+      </div>
+      <div class="grid grid-cols-2 gap-2 pt-2">
+        <button onclick="saveSite()" class="gold-gradient text-slate-950 font-black py-3.5 rounded-2xl text-lg">حفظ</button>
+        <button onclick="closeModal('siteModal')" class="bg-slate-800 text-slate-200 font-black py-3.5 rounded-2xl text-lg">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Weekly Account Settlement (Individual & Bulk) -->
+  <div id="settlementModal" class="fixed inset-0 z-50 hidden bg-black/85 flex items-center justify-center p-3">
+    <div class="card-dark w-full max-w-md rounded-3xl p-5 space-y-3 border-amber-500/60">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xl font-black text-amber-400 flex items-center gap-2">
+          <i class="fa-solid fa-hand-holding-dollar"></i>
+          <span>تصفية الحساب</span>
+        </h3>
+        <button onclick="closeModal('settlementModal')" class="text-slate-300 text-2xl px-2"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div>
+        <label class="text-sm text-slate-300 font-bold block mb-1">لمن التصفية؟</label>
+        <select id="settlementTargetSelect" onchange="updateSettlementPreview()" class="input-dark w-full rounded-2xl px-3 py-2 font-bold"></select>
+      </div>
+
+      <div id="settlementSummaryBox" class="bg-slate-900 border-2 border-slate-800 rounded-2xl p-3.5 text-base space-y-2"></div>
+
+      <div id="settlementSingleAmountBox" class="hidden">
+        <label class="text-sm text-slate-300 font-bold block mb-1">المبلغ الذي ستعطيه للعامل الآن:</label>
+        <input type="number" id="settlementAmountInput" class="input-dark w-full rounded-2xl px-3 py-2 font-black text-xl text-amber-400 text-center" />
+      </div>
+
+      <div>
+        <label class="text-sm text-slate-300 font-bold block mb-1">التاريخ:</label>
+        <input type="date" id="settlementDateInput" class="input-dark w-full rounded-2xl px-3 py-2 font-bold" />
+      </div>
+
+      <div>
+        <label class="text-sm text-slate-300 font-bold block mb-1">ملاحظة (اختياري):</label>
+        <input type="text" id="settlementNoteInput" placeholder="مثال: حساب الأسبوع" class="input-dark w-full rounded-2xl px-3 py-2" />
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 pt-2">
+        <button onclick="confirmSettlement()" class="gold-gradient text-slate-950 font-black py-3.5 rounded-2xl text-base">
+          تأكيد الدفع
+        </button>
+        <button onclick="closeModal('settlementModal')" class="bg-slate-800 text-slate-200 font-black py-3.5 rounded-2xl text-base">
+          إلغاء
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom High-Contrast Confirmation Modal (Replaces native confirm) -->
+  <div id="confirmDialogModal" class="fixed inset-0 z-[60] hidden bg-black/85 flex items-center justify-center p-4">
+    <div class="card-dark w-full max-w-sm rounded-3xl p-5 space-y-4 border-amber-500/60 text-center">
+      <div id="confirmDialogIcon" class="w-16 h-16 mx-auto rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-3xl">
+        <i class="fa-solid fa-circle-question"></i>
+      </div>
+      <h3 id="confirmDialogTitle" class="text-xl font-black text-white">تأكيد</h3>
+      <p id="confirmDialogMessage" class="text-base text-slate-300 font-bold leading-relaxed"></p>
+      <div class="grid grid-cols-2 gap-2.5 pt-1">
+        <button id="confirmDialogYesBtn" class="gold-gradient text-slate-950 font-black py-3.5 rounded-2xl text-lg">
+          نعم
+        </button>
+        <button onclick="closeConfirmDialog()" class="bg-slate-800 text-slate-200 font-black py-3.5 rounded-2xl text-lg">
+          لا، إلغاء
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Large Accessible Toast Notification -->
+  <div id="toast" class="fixed top-20 left-1/2 -translate-x-1/2 z-[70] hidden px-5 py-3.5 rounded-2xl text-base font-black shadow-2xl text-center min-w-[270px] max-w-[92%]"></div>
+
+  <script>
+    // Tags stored inside advances.note to distinguish weekly settlements and daily attendance expenses
+    const SETTLEMENT_TAG = '[تصفية أسبوعية]';
+    const DAILY_EXPENSE_TAG = '[مصروف يومي]';
+    let supabaseClient = null;
+    let isCloudConnected = false;
+
+    // Application state persisted in localStorage and synced with Supabase
+    let state = {
+      workers: [],
+      sites: [],
+      attendance: [],
+      advances: []
+    };
+
+    const todayStr = () => new Date().toISOString().split('T')[0];
+
+    function normalizeName(str) {
+      return (str || '').trim().replace(/\s+/g, ' ').toLowerCase();
+    }
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // Show clear non-blocking banner notifications
+    function showToast(msg, type = 'success') {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.className = 'fixed top-20 left-1/2 -translate-x-1/2 z-[70] px-5 py-3.5 rounded-2xl text-base font-black shadow-2xl text-center min-w-[270px] max-w-[92%] ' +
+        (type === 'error' ? 'bg-rose-600 text-white' : type === 'warn' ? 'bg-amber-400 text-slate-950' : 'bg-emerald-600 text-white');
+      el.classList.remove('hidden');
+      clearTimeout(window._toastTimer);
+      window._toastTimer = setTimeout(() => el.classList.add('hidden'), 3500);
+    }
+
+    // Custom high-contrast confirmation dialog (no browser confirm())
+    let _confirmCallback = null;
+    function showConfirmDialog({ title, message, yesLabel = 'نعم، تأكيد', danger = false, onConfirm }) {
+      document.getElementById('confirmDialogTitle').textContent = title;
+      document.getElementById('confirmDialogMessage').textContent = message;
+      const yesBtn = document.getElementById('confirmDialogYesBtn');
+      const iconBox = document.getElementById('confirmDialogIcon');
+      yesBtn.textContent = yesLabel;
+      if (danger) {
+        yesBtn.className = 'bg-rose-600 text-white font-black py-3.5 rounded-2xl text-lg';
+        iconBox.className = 'w-16 h-16 mx-auto rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center text-3xl';
+      } else {
+        yesBtn.className = 'gold-gradient text-slate-950 font-black py-3.5 rounded-2xl text-lg';
+        iconBox.className = 'w-16 h-16 mx-auto rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-3xl';
+      }
+      _confirmCallback = onConfirm;
+      yesBtn.onclick = async () => {
+        const cb = _confirmCallback;
+        closeConfirmDialog();
+        if (cb) await cb();
+      };
+      openModal('confirmDialogModal');
+    }
+
+    function closeConfirmDialog() {
+      _confirmCallback = null;
+      closeModal('confirmDialogModal');
+    }
+
+    // LocalStorage persistence
+    function saveLocalState() {
+      try {
+        const serialized = JSON.stringify(state);
+        try {
+          localStorage.setItem('samicash_data', serialized);
+        } catch (storageErr) {
+          // Fallback when localStorage is blocked or quota is exceeded
+          console.warn('localStorage unavailable, using window.name fallback:', storageErr);
+        }
+        // window.name persists across same-origin reloads even in restricted preview frames
+        try {
+          const namePayload = window.name ? JSON.parse(window.name) : {};
+          if (namePayload && typeof namePayload === 'object') {
+            namePayload.samicash_data = state;
+            window.name = JSON.stringify(namePayload);
+          } else {
+            window.name = JSON.stringify({ samicash_data: state });
+          }
+        } catch (nameErr) {
+          try {
+            window.name = JSON.stringify({ samicash_data: state });
+          } catch (_) {}
+        }
+        window.__samicashFallbackState = JSON.parse(serialized);
+      } catch (e) {
+        console.error('Local state save error:', e);
+      }
+    }
+
+    function readStoredPreference(key) {
+      try {
+        const val = localStorage.getItem(key);
+        if (val !== null && val !== '') return val;
+      } catch (_) {}
+      try {
+        if (window.name) {
+          const parsed = JSON.parse(window.name);
+          if (parsed && parsed[key]) return parsed[key];
+        }
+      } catch (_) {}
+      return '';
+    }
+
+    function writeStoredPreference(key, val) {
+      try {
+        localStorage.setItem(key, val);
+      } catch (_) {}
+      try {
+        const parsed = window.name ? JSON.parse(window.name) : {};
+        parsed[key] = val;
+        window.name = JSON.stringify(parsed);
+      } catch (_) {}
+    }
+
+    function hasAnyLocalRecords(obj) {
+      if (!obj) return false;
+      return Boolean(
+        (obj.workers && obj.workers.length) ||
+        (obj.attendance && obj.attendance.length) ||
+        (obj.advances && obj.advances.length) ||
+        (obj.sites && obj.sites.some(s => s.id !== 'site-default-1'))
+      );
+    }
+
+    function loadLocalState() {
+      let loadedFromStorage = false;
+      try {
+        const raw = localStorage.getItem('samicash_data');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          state.workers = Array.isArray(parsed.workers) ? parsed.workers : [];
+          state.sites = Array.isArray(parsed.sites) ? parsed.sites : [];
+          state.attendance = Array.isArray(parsed.attendance) ? parsed.attendance : [];
+          state.advances = Array.isArray(parsed.advances) ? parsed.advances : [];
+          loadedFromStorage = true;
+        }
+      } catch (e) {
+        console.error('LocalStorage parse error:', e);
+      }
+
+      // Recover from window.name if localStorage was empty or restricted
+      if (!hasAnyLocalRecords(state)) {
+        try {
+          if (window.name) {
+            const nameParsed = JSON.parse(window.name);
+            if (nameParsed && nameParsed.samicash_data) {
+              const d = nameParsed.samicash_data;
+              if (hasAnyLocalRecords(d)) {
+                state.workers = Array.isArray(d.workers) ? d.workers : state.workers;
+                state.sites = Array.isArray(d.sites) && d.sites.length ? d.sites : state.sites;
+                state.attendance = Array.isArray(d.attendance) ? d.attendance : state.attendance;
+                state.advances = Array.isArray(d.advances) ? d.advances : state.advances;
+                loadedFromStorage = true;
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (!loadedFromStorage && window.__samicashFallbackState) {
+        const fb = window.__samicashFallbackState;
+        state.workers = Array.isArray(fb.workers) ? fb.workers : [];
+        state.sites = Array.isArray(fb.sites) ? fb.sites : [];
+        state.attendance = Array.isArray(fb.attendance) ? fb.attendance : [];
+        state.advances = Array.isArray(fb.advances) ? fb.advances : [];
+      }
+
+      if (!state.sites.length) {
+        state.sites = [{ id: 'site-default-1', name: 'عمارة بسام', notes: '' }];
+        saveLocalState();
+      }
+    }
+
+    function updateConnectionBadge(connected) {
+      isCloudConnected = connected;
+      const badge = document.getElementById('connectionBadge');
+      if (connected) {
+        badge.textContent = 'متصل بالسحابة';
+        badge.className = 'inline-block text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold';
+      } else {
+        badge.textContent = 'حفظ في الهاتف';
+        badge.className = 'inline-block text-xs px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold';
+      }
+    }
+
+    // Supabase Cloud Initialization & Sync
+    async function initSupabase() {
+      const url = readStoredPreference('samicash_sb_url');
+      const key = readStoredPreference('samicash_sb_key');
+      document.getElementById('supabaseUrlInput').value = url;
+      document.getElementById('supabaseKeyInput').value = key;
+
+      if (url && key && window.supabase) {
+        try {
+          supabaseClient = window.supabase.createClient(url, key);
+          await syncFromCloud(true);
+        } catch (e) {
+          updateConnectionBadge(false);
+        }
+      } else {
+        updateConnectionBadge(false);
+      }
+    }
+
+    async function saveSupabaseSettings() {
+      const url = document.getElementById('supabaseUrlInput').value.trim();
+      const key = document.getElementById('supabaseKeyInput').value.trim();
+      if (!url || !key) {
+        showToast('اكتب الرابط والمفتاح أولاً', 'error');
+        return;
+      }
+      writeStoredPreference('samicash_sb_url', url);
+      writeStoredPreference('samicash_sb_key', key);
+      try {
+        supabaseClient = window.supabase.createClient(url, key);
+        await syncFromCloud(false);
+      } catch (err) {
+        updateConnectionBadge(false);
+        showToast('تعذر الاتصال بالرابط المدخل', 'error');
+      }
+    }
+
+    async function syncFromCloud(silent = false) {
+      if (!supabaseClient) {
+        if (!silent) showToast('أدخل بيانات الربط أولاً', 'error');
+        return;
+      }
+      try {
+        const [wRes, sRes, aRes, advRes] = await Promise.all([
+          supabaseClient.from('workers').select('*'),
+          supabaseClient.from('sites').select('*'),
+          supabaseClient.from('attendance').select('*'),
+          supabaseClient.from('advances').select('*')
+        ]);
+
+        if (wRes.error || sRes.error || aRes.error || advRes.error) {
+          throw new Error('فشل جلب البيانات');
+        }
+
+        const cloudWorkers = wRes.data || [];
+        const cloudSites = sRes.data || [];
+        const cloudAttendance = aRes.data || [];
+        const cloudAdvances = advRes.data || [];
+
+        const cloudHasData =
+          cloudWorkers.length > 0 ||
+          cloudAttendance.length > 0 ||
+          cloudAdvances.length > 0 ||
+          cloudSites.length > 0;
+
+        // Protect local data if cloud returns completely empty rows while local data exists
+        if (!cloudHasData && hasAnyLocalRecords(state)) {
+          updateConnectionBadge(true);
+          if (!silent) showToast('السحابة فارغة، تم الإبقاء على بيانات الهاتف');
+          return;
+        }
+
+        // Preserve any local extra_pay values if Supabase attendance table lacks extra_pay column
+        const localExtraMap = new Map();
+        state.attendance.forEach(a => {
+          if (a.extra_pay) {
+            localExtraMap.set(`${a.worker_id}__${a.date}`, a.extra_pay);
+          }
+        });
+
+        state.workers = cloudWorkers;
+        state.sites = cloudSites.length ? cloudSites : state.sites;
+        state.attendance = cloudAttendance.map(a => ({
+          ...a,
+          extra_pay: a.extra_pay !== undefined ? a.extra_pay : (localExtraMap.get(`${a.worker_id}__${a.date}`) || 0)
+        }));
+        state.advances = cloudAdvances;
+
+        saveLocalState();
+        updateConnectionBadge(true);
+        renderAll();
+        if (!silent) showToast('تم تحديث البيانات بنجاح');
+      } catch (err) {
+        updateConnectionBadge(false);
+        if (!silent) showToast('تعذر الاتصال، البيانات محفوظة في الهاتف', 'warn');
+      }
+    }
+
+    // Navigation & Modals
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-section').forEach(el => el.classList.add('hidden'));
+      document.getElementById('tab-' + tabName).classList.remove('hidden');
+
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.classList.remove('text-amber-400');
+        btn.classList.add('text-slate-400');
+      });
+      const activeBtn = document.getElementById('nav-' + tabName);
+      activeBtn.classList.remove('text-slate-400');
+      activeBtn.classList.add('text-amber-400');
+
+      renderAll();
+    }
+
+    function openModal(id) {
+      document.getElementById(id).classList.remove('hidden');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+    }
+
+    // --- Sites Management (with Duplicate Name Prevention) ---
+    function openSiteModal() {
+      document.getElementById('siteNameInput').value = '';
+      document.getElementById('siteNotesInput').value = '';
+      openModal('siteModal');
+    }
+
+    async function saveSite() {
+      const name = document.getElementById('siteNameInput').value.trim().replace(/\s+/g, ' ');
+      const notes = document.getElementById('siteNotesInput').value.trim();
+      if (!name) {
+        showToast('اكتب اسم الموقع أولاً', 'error');
+        return;
+      }
+
+      const norm = normalizeName(name);
+      if (state.sites.some(s => normalizeName(s.name) === norm)) {
+        showToast('هذا الموقع موجود مسبقاً!', 'error');
+        return;
+      }
+
+      if (isCloudConnected && supabaseClient) {
+        try {
+          const { data: existing } = await supabaseClient.from('sites').select('id, name');
+          if (existing && existing.some(s => normalizeName(s.name) === norm)) {
+            showToast('هذا الموقع موجود مسبقاً في السحابة!', 'error');
+            return;
+          }
+          const { data, error } = await supabaseClient.from('sites').insert([{ name }]).select();
+          if (!error && data && data[0]) {
+            state.sites.push({ ...data[0], notes });
+            saveLocalState();
+            closeModal('siteModal');
+            renderAll();
+            showToast('تم حفظ الموقع');
+            return;
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
+      state.sites.push({ id: 'site-' + Date.now(), name, notes });
+      saveLocalState();
+      closeModal('siteModal');
+      renderAll();
+      showToast('تم حفظ الموقع');
+    }
+
+    // --- Workers Management (with Duplicate Name Prevention) ---
+    function openWorkerModal(workerId = null) {
+      const worker = workerId ? state.workers.find(w => String(w.id) === String(workerId)) : null;
+      document.getElementById('editWorkerId').value = worker ? worker.id : '';
+      document.getElementById('workerModalTitle').textContent = worker ? 'تعديل بيانات العامل' : 'إضافة عامل جديد';
+      document.getElementById('workerNameInput').value = worker ? worker.name : '';
+      document.getElementById('workerRoleInput').value = worker ? (worker.role || '') : '';
+      document.getElementById('workerRateInput').value = worker ? (worker.daily_rate || 0) : '';
+      document.getElementById('workerPhoneInput').value = worker ? (worker.phone || '') : '';
+      openModal('workerModal');
+    }
+
+    async function saveWorker() {
+      const editId = document.getElementById('editWorkerId').value;
+      const name = document.getElementById('workerNameInput').value.trim().replace(/\s+/g, ' ');
+      const role = document.getElementById('workerRoleInput').value.trim() || 'عامل';
+      const daily_rate = parseFloat(document.getElementById('workerRateInput').value) || 0;
+      const phone = document.getElementById('workerPhoneInput').value.trim();
+
+      if (!name) {
+        showToast('اكتب اسم العامل أولاً', 'error');
+        return;
+      }
+
+      const norm = normalizeName(name);
+      if (state.workers.some(w => String(w.id) !== String(editId) && normalizeName(w.name) === norm)) {
+        showToast('يوجد عامل بنفس هذا الاسم!', 'error');
+        return;
+      }
+
+      if (isCloudConnected && supabaseClient) {
+        try {
+          const { data: cloudWorkers } = await supabaseClient.from('workers').select('id, name');
+          if (cloudWorkers && cloudWorkers.some(w => String(w.id) !== String(editId) && normalizeName(w.name) === norm)) {
+            showToast('يوجد عامل بنفس هذا الاسم في السحابة!', 'error');
+            return;
+          }
+
+          if (editId) {
+            const { error } = await supabaseClient.from('workers').update({ name, role, daily_rate }).eq('id', editId);
+            if (!error) {
+              const idx = state.workers.findIndex(w => String(w.id) === String(editId));
+              if (idx > -1) state.workers[idx] = { ...state.workers[idx], name, role, daily_rate, phone };
+              saveLocalState();
+              closeModal('workerModal');
+              renderAll();
+              showToast('تم حفظ التعديل');
+              return;
+            }
+          } else {
+            const { data, error } = await supabaseClient.from('workers').insert([{ name, role, daily_rate }]).select();
+            if (!error && data && data[0]) {
+              state.workers.push({ ...data[0], phone });
+              saveLocalState();
+              closeModal('workerModal');
+              renderAll();
+              showToast('تمت إضافة العامل');
+              return;
+            }
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
+      if (editId) {
+        const idx = state.workers.findIndex(w => String(w.id) === String(editId));
+        if (idx > -1) state.workers[idx] = { ...state.workers[idx], name, role, daily_rate, phone };
+      } else {
+        state.workers.push({ id: 'w-' + Date.now(), name, role, daily_rate, phone });
+      }
+      saveLocalState();
+      closeModal('workerModal');
+      renderAll();
+      showToast('تم حفظ العامل');
+    }
+
+    function deleteWorker(id) {
+      const worker = state.workers.find(w => String(w.id) === String(id));
+      const wName = worker ? worker.name : 'هذا العامل';
+      showConfirmDialog({
+        title: 'حذف العامل',
+        message: `هل تريد حذف "${wName}" نهائياً؟`,
+        yesLabel: 'نعم، احذف',
+        danger: true,
+        onConfirm: async () => {
+          if (isCloudConnected && supabaseClient) {
+            try {
+              await supabaseClient.from('workers').delete().eq('id', id);
+            } catch (e) {}
+          }
+          state.workers = state.workers.filter(w => String(w.id) !== String(id));
+          saveLocalState();
+          renderAll();
+          showToast('تم حذف العامل');
+        }
+      });
+    }
+
+    // --- Daily Attendance & Extra Pay ---
+    async function setAttendance(workerId, status) {
+      const date = document.getElementById('attendanceDate').value || todayStr();
+      const siteId = document.getElementById('defaultSiteSelect').value || (state.sites[0] && state.sites[0].id);
+      const existing = state.attendance.find(a => String(a.worker_id) === String(workerId) && a.date === date);
+      const extra_pay = existing ? (parseFloat(existing.extra_pay) || 0) : 0;
+
+      if (isCloudConnected && supabaseClient) {
+        try {
+          if (existing && !String(existing.id).startsWith('att-')) {
+            const { error } = await supabaseClient.from('attendance').update({ status, site_id: siteId }).eq('id', existing.id);
+            if (!error) {
+              existing.status = status;
+              existing.site_id = siteId;
+              saveLocalState();
+              renderAll();
+              return;
+            }
+          } else {
+            const { data, error } = await supabaseClient.from('attendance').insert([{ worker_id: workerId, site_id: siteId, date, status }]).select();
+            if (!error && data && data[0]) {
+              state.attendance = state.attendance.filter(a => !(String(a.worker_id) === String(workerId) && a.date === date));
+              state.attendance.push({ ...data[0], extra_pay });
+              saveLocalState();
+              renderAll();
+              return;
+            }
+          }
+        } catch (e) {}
+      }
+
+      if (existing) {
+        existing.status = status;
+        existing.site_id = siteId;
+      } else {
+        state.attendance.push({ id: 'att-' + Date.now(), worker_id: workerId, site_id: siteId, date, status, extra_pay: 0 });
+      }
+      saveLocalState();
+      renderAll();
+    }
+
+    function updateExtraPay(workerId, val) {
+      const date = document.getElementById('attendanceDate').value || todayStr();
+      const existing = state.attendance.find(a => String(a.worker_id) === String(workerId) && a.date === date);
+      const num = parseFloat(val) || 0;
+      if (existing) {
+        existing.extra_pay = num;
+      } else {
+        const siteId = document.getElementById('defaultSiteSelect').value || (state.sites[0] && state.sites[0].id);
+        state.attendance.push({ id: 'att-' + Date.now(), worker_id: workerId, site_id: siteId, date, status: 'present', extra_pay: num });
+      }
+      saveLocalState();
+      renderSummaryTotals();
+    }
+
+    // --- Daily Expense directly from Attendance Card ---
+    async function setDailyExpense(workerId, val) {
+      const date = document.getElementById('attendanceDate').value || todayStr();
+      const amount = parseFloat(val) || 0;
+      const existing = state.advances.find(
+        adv => String(adv.worker_id) === String(workerId) && adv.date === date && (adv.note || '').includes(DAILY_EXPENSE_TAG)
+      );
+
+      if (amount <= 0) {
+        if (existing) {
+          if (isCloudConnected && supabaseClient && !String(existing.id).startsWith('exp-') && !String(existing.id).startsWith('adv-')) {
+            try {
+              await supabaseClient.from('advances').delete().eq('id', existing.id);
+            } catch (e) {}
+          }
+          state.advances = state.advances.filter(a => String(a.id) !== String(existing.id));
+          saveLocalState();
+          renderSummaryTotals();
+          showToast('تم مسح المصروف اليومي');
+        }
+        return;
+      }
+
+      if (existing) {
+        if (isCloudConnected && supabaseClient && !String(existing.id).startsWith('exp-') && !String(existing.id).startsWith('adv-')) {
+          try {
+            await supabaseClient.from('advances').update({ amount }).eq('id', existing.id);
+          } catch (e) {}
+        }
+        existing.amount = amount;
+        saveLocalState();
+        renderSummaryTotals();
+        showToast('تم تحديث المصروف اليومي');
+        return;
+      }
+
+      const newRec = { worker_id: workerId, amount, date, note: DAILY_EXPENSE_TAG };
+      if (isCloudConnected && supabaseClient) {
+        try {
+          const { data, error } = await supabaseClient.from('advances').insert([newRec]).select();
+          if (!error && data && data[0]) {
+            state.advances.push(data[0]);
+            saveLocalState();
+            renderSummaryTotals();
+            showToast('تم حفظ المصروف اليومي');
+            return;
+          }
+        } catch (e) {}
+      }
+
+      state.advances.push({ id: 'exp-' + Date.now(), ...newRec });
+      saveLocalState();
+      renderSummaryTotals();
+      showToast('تم حفظ المصروف اليومي');
+    }
+
+    // --- Additional Expenses from Workers Tab ---
+    async function addAdvance() {
+      const workerId = document.getElementById('advanceWorkerSelect').value;
+      const amount = parseFloat(document.getElementById('advanceAmount').value) || 0;
+      const date = document.getElementById('advanceDate').value || todayStr();
+      const note = document.getElementById('advanceNote').value.trim() || 'مصروف';
+
+      if (!workerId || amount <= 0) {
+        showToast('اختر العامل واكتب مبلغ المصروف', 'error');
+        return;
+      }
+
+      if (isCloudConnected && supabaseClient) {
+        try {
+          const { data, error } = await supabaseClient.from('advances').insert([{ worker_id: workerId, amount, date, note }]).select();
+          if (!error && data && data[0]) {
+            state.advances.push(data[0]);
+            saveLocalState();
+            document.getElementById('advanceAmount').value = '';
+            document.getElementById('advanceNote').value = '';
+            renderAll();
+            showToast('تم حفظ المصروف');
+            return;
+          }
+        } catch (e) {}
+      }
+
+      state.advances.push({ id: 'adv-' + Date.now(), worker_id: workerId, amount, date, note });
+      saveLocalState();
+      document.getElementById('advanceAmount').value = '';
+      document.getElementById('advanceNote').value = '';
+      renderAll();
+      showToast('تم حفظ المصروف');
+    }
+
+    // --- Financial Ledger & Weekly Account Settlement ---
+    function getWorkerFinancials(worker, fromDate = '', toDate = '') {
+      const rate = parseFloat(worker.daily_rate) || 0;
+      const attList = state.attendance.filter(a => {
+        if (String(a.worker_id) !== String(worker.id)) return false;
+        if (fromDate && a.date < fromDate) return false;
+        if (toDate && a.date > toDate) return false;
+        return true;
+      });
+
+      let days = 0;
+      let extraTotal = 0;
+      attList.forEach(a => {
+        if (a.status === 'present') days += 1;
+        else if (a.status === 'half') days += 0.5;
+        extraTotal += parseFloat(a.extra_pay) || 0;
+      });
+
+      const earned = (days * rate) + extraTotal;
+
+      const advList = state.advances.filter(adv => {
+        if (String(adv.worker_id) !== String(worker.id)) return false;
+        if (fromDate && adv.date < fromDate) return false;
+        if (toDate && adv.date > toDate) return false;
+        return true;
+      });
+
+      let regularExpenses = 0;
+      let settledPaid = 0;
+      advList.forEach(adv => {
+        const amt = parseFloat(adv.amount) || 0;
+        if ((adv.note || '').includes(SETTLEMENT_TAG)) {
+          settledPaid += amt;
+        } else {
+          regularExpenses += amt;
+        }
+      });
+
+      const net = earned - regularExpenses - settledPaid;
+      return { days, extraTotal, earned, regularExpenses, settledPaid, net };
+    }
+
+    function openSettlementModal(target = 'all') {
+      if (!state.workers.length) {
+        showToast('أضف العمال أولاً', 'warn');
+        return;
+      }
+
+      const select = document.getElementById('settlementTargetSelect');
+      select.innerHTML = `<option value="all">تصفية لكل العمال دفعة واحدة</option>` +
+        state.workers.map(w => `<option value="${w.id}">${escapeHtml(w.name)}</option>`).join('');
+
+      select.value = String(target);
+      document.getElementById('settlementDateInput').value = todayStr();
+      document.getElementById('settlementNoteInput').value = '';
+      updateSettlementPreview();
+      openModal('settlementModal');
+    }
+
+    function updateSettlementPreview() {
+      const target = document.getElementById('settlementTargetSelect').value;
+      const fromDate = document.getElementById('reportFromDate').value;
+      const toDate = document.getElementById('reportToDate').value;
+      const summaryBox = document.getElementById('settlementSummaryBox');
+      const singleBox = document.getElementById('settlementSingleAmountBox');
+      const amountInput = document.getElementById('settlementAmountInput');
+
+      if (target === 'all') {
+        singleBox.classList.add('hidden');
+        let eligibleCount = 0;
+        let totalPayable = 0;
+
+        state.workers.forEach(w => {
+          const fin = getWorkerFinancials(w, fromDate, toDate);
+          if (fin.net > 0) {
+            eligibleCount++;
+            totalPayable += fin.net;
+          }
+        });
+
+        summaryBox.innerHTML = `
+          <div class="flex justify-between"><span class="text-slate-300">عدد العمال:</span><span class="font-black text-white">${eligibleCount}</span></div>
+          <div class="flex justify-between"><span class="text-slate-300">إجمالي المبلغ المطلوب:</span><span class="font-black text-amber-400 text-xl">${totalPayable.toLocaleString()}</span></div>
+          <p class="text-xs text-slate-400 pt-1">تبقى أسماء العمال وسجلاتهم محفوظة بالكامل.</p>
+        `;
+      } else {
+        const worker = state.workers.find(w => String(w.id) === String(target));
+        if (!worker) return;
+        const fin = getWorkerFinancials(worker, fromDate, toDate);
+        singleBox.classList.remove('hidden');
+        amountInput.value = Math.max(0, fin.net);
+
+        summaryBox.innerHTML = `
+          <div class="flex justify-between"><span class="text-slate-300">المستحق:</span><span class="font-black text-emerald-400">${fin.earned.toLocaleString()}</span></div>
+          <div class="flex justify-between"><span class="text-slate-300">المصروف:</span><span class="font-black text-rose-400">${fin.regularExpenses.toLocaleString()}</span></div>
+          <div class="flex justify-between"><span class="text-slate-300">المدفوع سابقاً:</span><span class="font-black text-amber-300">${fin.settledPaid.toLocaleString()}</span></div>
+          <div class="flex justify-between border-t border-slate-700 pt-1.5"><span class="font-black text-white">الباقي له:</span><span class="font-black text-amber-400 text-xl">${fin.net.toLocaleString()}</span></div>
+        `;
+      }
+    }
+
+    function confirmSettlement() {
+      const target = document.getElementById('settlementTargetSelect').value;
+      const date = document.getElementById('settlementDateInput').value || todayStr();
+      const customNote = document.getElementById('settlementNoteInput').value.trim();
+      const note = customNote ? `${SETTLEMENT_TAG} ${customNote}` : SETTLEMENT_TAG;
+      const fromDate = document.getElementById('reportFromDate').value;
+      const toDate = document.getElementById('reportToDate').value;
+
+      const recordsToInsert = [];
+
+      if (target === 'all') {
+        state.workers.forEach(w => {
+          const fin = getWorkerFinancials(w, fromDate, toDate);
+          if (fin.net > 0) {
+            recordsToInsert.push({ worker_id: w.id, amount: fin.net, date, note });
+          }
+        });
+        if (!recordsToInsert.length) {
+          showToast('لا يوجد مبلغ متبقٍ للتصفية', 'warn');
+          return;
+        }
+      } else {
+        const amount = parseFloat(document.getElementById('settlementAmountInput').value) || 0;
+        if (amount <= 0) {
+          showToast('اكتب مبلغاً أكبر من صفر', 'error');
+          return;
+        }
+        recordsToInsert.push({ worker_id: target, amount, date, note });
+      }
+
+      const totalPaid = recordsToInsert.reduce((s, r) => s + r.amount, 0);
+      showConfirmDialog({
+        title: 'تأكيد تصفية الحساب',
+        message: `سيتم تسجيل دفع مبلغ (${totalPaid.toLocaleString()}) وتحديث الرصيد. هل تريد المتابعة؟`,
+        yesLabel: 'نعم، تم الدفع',
+        danger: false,
+        onConfirm: async () => {
+          if (isCloudConnected && supabaseClient) {
+            try {
+              const { data, error } = await supabaseClient.from('advances').insert(recordsToInsert).select();
+              if (!error && data) {
+                state.advances.push(...data);
+                saveLocalState();
+                closeModal('settlementModal');
+                renderAll();
+                showToast('تمت تصفية الحساب بنجاح');
+                return;
+              }
+            } catch (e) {}
+          }
+
+          recordsToInsert.forEach((rec, i) => {
+            state.advances.push({ id: 'settle-' + Date.now() + '-' + i, ...rec });
+          });
+          saveLocalState();
+          closeModal('settlementModal');
+          renderAll();
+          showToast('تمت تصفية الحساب بنجاح');
+        }
+      });
+    }
+
+    function undoSettlement(id) {
+      showConfirmDialog({
+        title: 'تراجع عن التصفية',
+        message: 'هل تريد إلغاء هذه التصفية وإرجاع المبلغ لحساب العامل؟',
+        yesLabel: 'نعم، تراجع',
+        danger: true,
+        onConfirm: async () => {
+          if (isCloudConnected && supabaseClient && !String(id).startsWith('settle-') && !String(id).startsWith('adv-') && !String(id).startsWith('exp-')) {
+            try {
+              await supabaseClient.from('advances').delete().eq('id', id);
+            } catch (e) {}
+          }
+          state.advances = state.advances.filter(a => String(a.id) !== String(id));
+          saveLocalState();
+          renderAll();
+          showToast('تم إلغاء التصفية');
+        }
+      });
+    }
+
+    // --- UI Rendering ---
+    function renderSummaryTotals() {
+      let totalEarned = 0;
+      let totalDeducted = 0;
+      let totalNet = 0;
+
+      state.workers.forEach(w => {
+        const fin = getWorkerFinancials(w);
+        totalEarned += fin.earned;
+        totalDeducted += (fin.regularExpenses + fin.settledPaid);
+        totalNet += fin.net;
+      });
+
+      document.getElementById('topTotalEarned').textContent = totalEarned.toLocaleString();
+      document.getElementById('topTotalDeducted').textContent = totalDeducted.toLocaleString();
+      document.getElementById('topTotalNet').textContent = totalNet.toLocaleString();
+    }
+
+    function renderSitesSelectors() {
+      const siteSelect = document.getElementById('defaultSiteSelect');
+      const currentVal = siteSelect.value;
+      siteSelect.innerHTML = state.sites.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+      if (currentVal && state.sites.some(s => String(s.id) === String(currentVal))) {
+        siteSelect.value = currentVal;
+      }
+
+      const settingsList = document.getElementById('settingsSitesList');
+      settingsList.innerHTML = state.sites.map(s => `
+        <div class="flex items-center justify-between bg-slate-900 rounded-2xl px-4 py-3 border border-slate-800">
+          <div>
+            <div class="font-black text-white text-base">${escapeHtml(s.name)}</div>
+            ${s.notes ? `<div class="text-slate-400 text-xs">${escapeHtml(s.notes)}</div>` : ''}
+          </div>
+          <i class="fa-solid fa-building text-amber-400 text-xl"></i>
+        </div>
+      `).join('');
+    }
+
+    function renderAttendanceList() {
+      const container = document.getElementById('attendanceList');
+      const date = document.getElementById('attendanceDate').value || todayStr();
+
+      if (!state.workers.length) {
+        container.innerHTML = `<div class="card-dark rounded-2xl p-6 text-center text-base text-slate-300 font-bold">لا يوجد عمال. اضغط على "العمال والمصروف" بالأسفل لإضافة العمال.</div>`;
+        return;
+      }
+
+      container.innerHTML = state.workers.map(w => {
+        const rec = state.attendance.find(a => String(a.worker_id) === String(w.id) && a.date === date);
+        const status = rec ? rec.status : '';
+        const extra = rec ? (rec.extra_pay || '') : '';
+
+        const expRec = state.advances.find(
+          adv => String(adv.worker_id) === String(w.id) && adv.date === date && (adv.note || '').includes(DAILY_EXPENSE_TAG)
+        );
+        const dailyExpense = expRec ? (expRec.amount || '') : '';
+
+        return `
+          <div class="card-dark rounded-2xl p-4 space-y-3">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="font-black text-lg text-white">${escapeHtml(w.name)}</div>
+                <div class="text-sm text-slate-400 font-bold">${escapeHtml(w.role || 'عامل')} • اليومية: ${Number(w.daily_rate || 0).toLocaleString()}</div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2">
+              <button onclick="setAttendance('${w.id}', 'present')" class="py-3.5 rounded-2xl text-base font-black flex flex-col items-center gap-1 min-h-[64px] ${status === 'present' ? 'bg-emerald-600 text-white shadow-lg ring-2 ring-emerald-300' : 'bg-slate-800 text-slate-300'}">
+                <i class="fa-solid fa-check text-xl"></i>
+                <span>حاضر</span>
+              </button>
+              <button onclick="setAttendance('${w.id}', 'half')" class="py-3.5 rounded-2xl text-base font-black flex flex-col items-center gap-1 min-h-[64px] ${status === 'half' ? 'bg-amber-400 text-slate-950 shadow-lg ring-2 ring-amber-200' : 'bg-slate-800 text-slate-300'}">
+                <i class="fa-solid fa-clock text-xl"></i>
+                <span>نصف يوم</span>
+              </button>
+              <button onclick="setAttendance('${w.id}', 'absent')" class="py-3.5 rounded-2xl text-base font-black flex flex-col items-center gap-1 min-h-[64px] ${status === 'absent' ? 'bg-rose-600 text-white shadow-lg ring-2 ring-rose-300' : 'bg-slate-800 text-slate-300'}">
+                <i class="fa-solid fa-xmark text-xl"></i>
+                <span>غائب</span>
+              </button>
+            </div>
+
+            <!-- Side-by-Side Daily Expense (المصروف اليومي) & Daily Extra Pay (إضافي اليوم) -->
+            <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800">
+              <div class="bg-rose-950/30 border border-rose-500/30 rounded-2xl p-2 text-center">
+                <label class="text-xs sm:text-sm text-rose-300 font-black block mb-1">
+                  <i class="fa-solid fa-wallet"></i> المصروف اليومي
+                </label>
+                <input type="number" value="${dailyExpense}" onchange="setDailyExpense('${w.id}', this.value)" placeholder="0" class="input-dark w-full rounded-xl px-2 py-1 text-center font-black text-rose-300" />
+              </div>
+
+              <div class="bg-emerald-950/30 border border-emerald-500/30 rounded-2xl p-2 text-center">
+                <label class="text-xs sm:text-sm text-emerald-300 font-black block mb-1">
+                  <i class="fa-solid fa-plus-circle"></i> إضافي اليوم
+                </label>
+                <input type="number" value="${extra}" onchange="updateExtraPay('${w.id}', this.value)" placeholder="0" class="input-dark w-full rounded-xl px-2 py-1 text-center font-black text-emerald-300" />
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderWorkersList() {
+      const search = normalizeName(document.getElementById('workerSearch').value);
+      const container = document.getElementById('workersList');
+      const advSelect = document.getElementById('advanceWorkerSelect');
+
+      advSelect.innerHTML = state.workers.map(w => `<option value="${w.id}">${escapeHtml(w.name)}</option>`).join('');
+
+      const filtered = state.workers.filter(w => !search || normalizeName(w.name).includes(search));
+      if (!filtered.length) {
+        container.innerHTML = `<div class="card-dark rounded-2xl p-5 text-center text-base text-slate-400 font-bold">لا يوجد عمال</div>`;
+        return;
+      }
+
+      container.innerHTML = filtered.map(w => {
+        const fin = getWorkerFinancials(w);
+        return `
+          <div class="card-dark rounded-2xl p-4 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="font-black text-lg text-white">${escapeHtml(w.name)}</div>
+                <div class="text-sm text-slate-400 font-bold">${escapeHtml(w.role || 'عامل')} • اليومية: ${Number(w.daily_rate || 0).toLocaleString()}</div>
+              </div>
+              <div class="text-left">
+                <div class="text-xs text-slate-400 font-bold">الباقي له</div>
+                <div class="text-lg font-black text-amber-400">${fin.net.toLocaleString()}</div>
+              </div>
+            </div>
+            <div class="grid grid-cols-3 gap-2 pt-1">
+              <button onclick="openSettlementModal('${w.id}')" class="gold-gradient text-slate-950 py-3 rounded-xl text-sm font-black min-h-[48px]">تصفية</button>
+              <button onclick="openWorkerModal('${w.id}')" class="bg-slate-800 text-white py-3 rounded-xl text-sm font-black min-h-[48px]">تعديل</button>
+              <button onclick="deleteWorker('${w.id}')" class="bg-rose-600/20 text-rose-400 py-3 rounded-xl text-sm font-black min-h-[48px]">حذف</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderReport() {
+      const fromDate = document.getElementById('reportFromDate').value;
+      const toDate = document.getElementById('reportToDate').value;
+      const container = document.getElementById('reportWorkersList');
+
+      if (!state.workers.length) {
+        container.innerHTML = `<div class="card-dark rounded-2xl p-5 text-center text-base text-slate-400 font-bold">لا يوجد عمال</div>`;
+      } else {
+        container.innerHTML = state.workers.map(w => {
+          const fin = getWorkerFinancials(w, fromDate, toDate);
+          return `
+            <div class="card-dark rounded-2xl p-4 space-y-3">
+              <div class="flex items-center justify-between gap-2">
+                <div>
+                  <div class="font-black text-lg text-white">${escapeHtml(w.name)}</div>
+                  <div class="text-sm text-slate-300 font-bold">الأيام: ${fin.days} • الإضافي: ${fin.extraTotal.toLocaleString()}</div>
+                </div>
+                <button onclick="openSettlementModal('${w.id}')" class="gold-gradient text-slate-950 font-black text-base px-4 py-3 rounded-2xl flex items-center gap-1.5 shadow min-h-[50px]">
+                  <i class="fa-solid fa-hand-holding-dollar"></i>
+                  <span>تصفية</span>
+                </button>
+              </div>
+              <div class="grid grid-cols-3 gap-2 text-center bg-slate-900 rounded-2xl p-2.5">
+                <div>
+                  <div class="text-xs text-slate-400 font-bold">المستحق</div>
+                  <div class="text-base font-black text-emerald-400">${fin.earned.toLocaleString()}</div>
+                </div>
+                <div>
+                  <div class="text-xs text-slate-400 font-bold">المصروف والمدفوع</div>
+                  <div class="text-base font-black text-rose-400">${(fin.regularExpenses + fin.settledPaid).toLocaleString()}</div>
+                </div>
+                <div>
+                  <div class="text-xs text-amber-300 font-bold">الباقي له</div>
+                  <div class="text-lg font-black text-amber-400">${fin.net.toLocaleString()}</div>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      const historyContainer = document.getElementById('settlementHistoryList');
+      const settlements = state.advances
+        .filter(a => (a.note || '').includes(SETTLEMENT_TAG))
+        .slice()
+        .reverse();
+
+      if (!settlements.length) {
+        historyContainer.innerHTML = `<div class="text-slate-400 text-center py-2 font-bold">لا توجد تصفيات سابقة.</div>`;
+      } else {
+        historyContainer.innerHTML = settlements.map(s => {
+          const worker = state.workers.find(w => String(w.id) === String(s.worker_id));
+          const workerName = worker ? worker.name : 'عامل';
+          const cleanNote = (s.note || '').replace(SETTLEMENT_TAG, '').trim();
+          return `
+            <div class="flex items-center justify-between bg-slate-900 rounded-2xl px-3.5 py-3 border border-slate-800">
+              <div>
+                <div class="font-black text-white text-base">${escapeHtml(workerName)}: <span class="text-amber-400">${Number(s.amount || 0).toLocaleString()}</span></div>
+                <div class="text-xs text-slate-400 font-bold">${escapeHtml(s.date || '')} ${cleanNote ? '• ' + escapeHtml(cleanNote) : ''}</div>
+              </div>
+              <button onclick="undoSettlement('${s.id}')" class="bg-rose-600/20 text-rose-300 border border-rose-500/40 px-3.5 py-2.5 rounded-xl font-black text-sm min-h-[44px]">
+                تراجع
+              </button>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+
+    // Arabic UTF-8 BOM Excel CSV Export
+    function exportToExcelCSV() {
+      const fromDate = document.getElementById('reportFromDate').value;
+      const toDate = document.getElementById('reportToDate').value;
+      const headers = ['اسم العامل', 'المهنة', 'الأجر اليومي', 'أيام العمل', 'الإضافي', 'إجمالي المستحق', 'المصروف', 'التصفيات المدفوعة', 'صافي المتبقي'];
+
+      const rows = state.workers.map(w => {
+        const fin = getWorkerFinancials(w, fromDate, toDate);
+        return [
+          w.name,
+          w.role || 'عامل',
+          w.daily_rate || 0,
+          fin.days,
+          fin.extraTotal,
+          fin.earned,
+          fin.regularExpenses,
+          fin.settledPaid,
+          fin.net
+        ];
+      });
+
+      const csvContent = '\uFEFF' + [headers, ...rows]
+        .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `تقرير_SamiCash_${todayStr()}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('تم حفظ ملف Excel');
+    }
+
+    // WhatsApp Report Sharing
+    function shareWhatsAppReport() {
+      const fromDate = document.getElementById('reportFromDate').value;
+      const toDate = document.getElementById('reportToDate').value;
+      let lines = [`*حساب العمال - SamiCash*`, `التاريخ: ${todayStr()}`, `-------------------`];
+
+      state.workers.forEach(w => {
+        const fin = getWorkerFinancials(w, fromDate, toDate);
+        lines.push(`• *${w.name}*: أيام (${fin.days}) | المستحق (${fin.earned}) | المصروف (${fin.regularExpenses}) | المدفوع (${fin.settledPaid}) | *الباقي: ${fin.net}*`);
+      });
+
+      const text = encodeURIComponent(lines.join('\n'));
+      window.open(`https://wa.me/?text=${text}`, '_blank');
+    }
+
+    function renderAll() {
+      renderSummaryTotals();
+      renderSitesSelectors();
+      renderAttendanceList();
+      renderWorkersList();
+      renderReport();
+    }
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      document.getElementById('attendanceDate').value = todayStr();
+      document.getElementById('advanceDate').value = todayStr();
+      loadLocalState();
+      renderAll();
+      await initSupabase();
+    });
+  </script>
+</body>
+</html>
+```
