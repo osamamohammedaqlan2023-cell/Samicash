@@ -1,0 +1,2 @@
+# Samicash
+ Finance Management  system 
